@@ -1,0 +1,35 @@
+name: Build SakrOS ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache /usr/local/share/boost
+          sudo docker image prune -af || true
+          sudo mkdir -p /mnt/build /mnt/out
+          sudo chmod 777 /mnt/build /mnt/out
+          df -h / /mnt
+
+      - name: Build ISO inside Kali container
+        run: |
+          sudo docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE/build-sakros.sh:/build-sakros.sh:ro" \
+            -v /mnt/build:/build -v /mnt/out:/out \
+            kalilinux/kali-rolling bash /build-sakros.sh
+          ls -lh /mnt/out
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: sakros-iso
+          path: /mnt/out/sakros-amd64.iso
+          compression-level: 0
+          if-no-files-found: error
